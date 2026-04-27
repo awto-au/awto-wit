@@ -1,0 +1,11 @@
+# Python
+py/.venv/
+__pycache__/
+*.pyc
+
+# Rust
+rs/target/
+**/*.rs.bk
+
+# Editor
+.vscode/

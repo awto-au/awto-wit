@@ -1,0 +1,10 @@
+[package]
+name = "wit-ble"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+btleplug = "0.11"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "signal"] }
+futures = "0.3"
+uuid = "1"
