@@ -46,24 +46,31 @@ To obtain a firmware image + changelog, **contact WitMotion support**
 
 ## BLE transports / services
 
-| Service | UUIDs | Role |
-|---|---|---|
-| **WIT data** | svc `FFE5`, notify `FFE4`, write `FFE9` | IMU data frames + register read/write (primary) |
-| **Nordic UART (NUS)** | `6E40xxxx-…` | serial-over-BLE (where present) |
-| **Microchip/ISSC transparent UART** | `49535343-…` | serial-over-BLE on ISSC-based modules |
-| **Nordic Secure DFU** | `FE59` (buttonless) | firmware update; bootloader advertises `DfuTarg` |
+**Confirmed GATT on this unit** (live `--services` dump of WT901BLE67,
+2026-06-05) — *only* the standard services + WIT data:
 
+| Service | Characteristics | Role |
+|---|---|---|
+| `1800` Generic Access | `2a00` name (r/w), `2a01`, `2a04`, `2aa6` | standard GAP |
+| `1801` Generic Attribute | — | standard GATT |
+| **`FFE5` WIT data** | **`FFE9`** write / writeWithoutResponse · **`FFE4`** notify | IMU data frames + register read/write — **the only data path** |
+
+- **There is NO serial/debug console:** no **NUS (`6E40…`)**, no **ISSC transparent
+  UART (`49535343…`)**, no **Device-Info (`180A`)**. Those UART services are
+  referenced by the multi-device app for *other* WitMotion models — **not this one.**
+  The only "serial" is the `FFE4` notify stream (`0x55 0x61` frames) + `FFE9` registers.
+- **No `FE59` DFU service either** → this unit is **not field-OTA-updatable** over BLE;
+  firmware is factory/support-only.
 - `FFE9` is **write-without-response**; a with-response write returns ATT `0x0e`.
-- For **serial output / a debug console** on a Nordic unit, **NUS** is the path
-  (confirm it's exposed via a GATT dump / nRF Connect); the physical **SWD** pads on
-  the nRF are the lower-level option (but the sealed enclosure + likely `APPROTECT`
-  rule this out in practice).
+- Physical **SWD** pads exist on the nRF but the sealed enclosure + likely `APPROTECT`
+  rule out reading firmware that way.
 
 ## Firmware update
 
-- **Over BLE:** Nordic **Buttonless Secure DFU** — the BWT901BLE5.0 app/SDK triggers
-  DFU, the unit reboots into the bootloader (advertising `DfuTarg`), then a standard
-  signed Nordic DFU package is sent. Secure DFU is **write-only** (no read-back).
+- **Over BLE (Nordic Buttonless Secure DFU):** the general design path — but **our
+  unit does NOT expose the `FE59` DFU service** (confirmed GATT above), so it is **not
+  field-updatable over BLE**. On units that do have it, the app triggers DFU → reboot
+  to bootloader (`DfuTarg`) → signed package; Secure DFU is **write-only** (no read-back).
 - The firmware **image is not obtainable** by users (see *App, SDK & firmware* above
   + issue #1) — request it from WitMotion support.
 - Firmware version is in reg `0x2E` (VERSION) + the BLE Device Information Service.
