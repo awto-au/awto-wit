@@ -127,7 +127,7 @@ Verified empirically by reading and writing — not from official datasheets.
 | `0x22` | SLEEP | one-shot: write `1` to sleep now |
 | `0x23` | ORIENT | orientation hint |
 | `0x24` | POWERONSEND | (purpose unclear; was 0 on test unit) |
-| **`0x25`** | **LOWPOWER** | **seconds before sleep when not connected.** NOT a bool. Factory default `30`. Write `3600` for 1 hour, larger for longer. |
+| `0x25` | LOWPOWER? / FILTK? | **Contested** — the standard WIT map calls it FILTK (dynamic filtering); earlier notes here called it LOWPOWER (auto-sleep seconds). Writes ≤3600 stick, >3600 are rejected. Function unverified — see issue #1. |
 | `0x66`–`0x68` | MAC | MAC address in reverse byte order |
 | `0x69` | UNLOCK | unlock register (write `0x88B5`) |
 
@@ -146,16 +146,11 @@ advertising after `LOWPOWER` seconds (factory default 30s) when not
 connected — even while plugged in for charging. This causes "the device
 disappears from scans" symptom.
 
-To keep it always advertising:
-
-```bash
-cd py
-.venv/bin/python wit_write_lowpower.py 3600   # 1 hour
-# or 65535 for ~18 hours
-```
-
-Verified on 2026-05-25 that the value is persistent across power cycles
-(survives full battery disconnect, not just reboot).
+**To keep a unit awake, hold a BLE connection open** — it sleeps only after
+disconnect. There is no register that reliably disables auto-sleep: reg `0x25`
+writes >3600 are rejected, and the earlier "`65535` ⇒ ~18 h, persistent" result
+could **not** be reproduced. The register's function is unresolved — see issue #1.
+Full details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Notes
 
