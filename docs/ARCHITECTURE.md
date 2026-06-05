@@ -3,31 +3,46 @@
 Reference notes for the **WitMotion WT901BLE** family (tested: **WT901BLE67**, BLE 5.0).
 Empirical for that firmware revision; not official vendor documentation.
 
-## Module architecture (two chips)
+## Module architecture (nRF52 + MPU9250, single-MCU)
 
-The module is a **two-chip design**:
+The WT901BLE67 (BWT901BLE5.0) is effectively a **single-MCU** design:
 
 ```mermaid
 flowchart LR
-  subgraph Module["WT901BLE module"]
-    NRF["Nordic nRF52\n(BLE 5.0 + Secure DFU bootloader)"]
-    JY["JY925\nIMU / sensor MCU\n(accel + gyro + mag + fusion)"]
-    NRF <-->|internal UART| JY
+  subgraph Module["WT901BLE67 module"]
+    NRF["Nordic nRF52\n(BLE 5.0 + IMU fusion + WIT registers\n+ Secure DFU bootloader)"]
+    MEMS["MPU9250\n9-axis MEMS (accel+gyro+mag)\ndumb I2C sensor, no firmware"]
+    NRF <-->|I2C/SPI| MEMS
   end
   Phone(["Phone / host (BLE central)"]) <-->|BLE GATT| NRF
-  PC(["PC updater (USB serial)"]) -. "IAP .hex flash" .-> JY
 ```
 
-- **Nordic nRF52** — the BLE radio + GATT server + the **Nordic Secure DFU bootloader**
-  (in DFU mode it advertises as **`DfuTarg`**). Appears to track the Nordic SDK
-  reference design closely.
-- **JY925** — the IMU/sensor MCU that produces the accel/gyro/angle/mag data and runs
-  the fusion. The PC updater flashes the **JY925** over **serial IAP** (a `.hex`,
-  CRC16-CCITT framed) — separate from the BLE side.
-- The two talk over an **internal UART** (the JY925's serial stream is bridged to BLE).
+- **Nordic nRF52** runs **everything**: the BLE radio + GATT server, reads the
+  MPU9250, runs the attitude fusion, serves the **WIT register protocol**, and holds
+  the **Nordic Secure DFU bootloader** (advertises **`DfuTarg`** in DFU mode).
+  Tracks the Nordic SDK reference design closely — **all firmware/logic lives here.**
+- **MPU9250** — a standard InvenSense 9-axis MEMS; a *dumb* sensor with no firmware.
 
-> Some WitMotion BLE models use a **Microchip/ISSC** BLE module instead of Nordic.
-> Tooling that targets the family therefore supports multiple transports (below).
+> An earlier draft described a two-chip **nRF + JY925/STM32-IAP** design — that's a
+> *different* WitMotion product line (wired/STM32 sensors flashed by the generic PC
+> tool), **not** this BLE unit. Some other WitMotion BLE models use a **Microchip/
+> ISSC** module instead of Nordic.
+
+## App, SDK & firmware
+
+**Use the right app/SDK.** This unit is the **non-CL `BWT901BLE5.0`** line. The
+general WitMotion phone app (`com.wit.wit_app`) only lists the **CL** product
+(`BWT901BLECL5.0`) and **will not discover/connect this device** (its scan filters
+by product). Use the dedicated SDK + demo apps instead:
+
+- **SDK (Android / iOS / Windows / Unity / Python):**
+  <https://github.com/WITMOTION/WitBluetooth_BWT901BLE5_0> — all connect this unit.
+
+**Firmware is not publicly distributed.** It's not on the WitMotion site / Download
+Center, not in the PC software bundle, not in the app, and not in either SDK; the
+sealed enclosure + write-only Nordic Secure DFU rule out reading it off the device.
+To obtain a firmware image + changelog, **contact WitMotion support**
+(support@wit-motion.com) with the model `WT901BLE67 / BWT901BLE5.0`.
 
 ## BLE transports / services
 
@@ -40,18 +55,20 @@ flowchart LR
 
 - `FFE9` is **write-without-response**; a with-response write returns ATT `0x0e`.
 - For **serial output / a debug console** on a Nordic unit, **NUS** is the path
-  (confirm it's exposed via a GATT dump / nRF Connect); the physical **SWD/UART**
-  pads on the nRF are the lower-level option (the nRF↔JY925 link is UART).
+  (confirm it's exposed via a GATT dump / nRF Connect); the physical **SWD** pads on
+  the nRF are the lower-level option (but the sealed enclosure + likely `APPROTECT`
+  rule this out in practice).
 
 ## Firmware update
 
-- **Over BLE:** Nordic **Buttonless Secure DFU** — the app triggers DFU, the unit
-  reboots into the bootloader (advertising `DfuTarg`), then a standard Nordic DFU
-  package is sent.
-- **Over USB (PC tool):** flashes the **JY925** `.hex` via serial **IAP**
-  (CRC16-CCITT; "upgrade ready / receive / complete" handshake).
+- **Over BLE:** Nordic **Buttonless Secure DFU** — the BWT901BLE5.0 app/SDK triggers
+  DFU, the unit reboots into the bootloader (advertising `DfuTarg`), then a standard
+  signed Nordic DFU package is sent. Secure DFU is **write-only** (no read-back).
+- The firmware **image is not obtainable** by users (see *App, SDK & firmware* above
+  + issue #1) — request it from WitMotion support.
 - Firmware version is in reg `0x2E` (VERSION) + the BLE Device Information Service.
-  See issue #1 (firmware version / register-map differences).
+- (The serial **STM32 ISP / `.hex` IAP** flow in WitMotion's PC tool is for their
+  *wired/STM32* sensors — **not** this nRF-based BLE unit.)
 
 ## Power & sleep
 
