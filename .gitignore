@@ -9,3 +9,7 @@ rs/target/
 
 # Editor
 .vscode/
+
+# Vendor reference (WitMotion PDFs/SDK docs + migrated awto-l8-app wit notes) —
+# local-only, not republished
+docs/vendor/
